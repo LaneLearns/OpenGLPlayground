@@ -16,15 +16,20 @@ Application::Application(const int width, const int height, const std::string& t
 
 Application::~Application()
 {
+	if (m_VAO) glDeleteVertexArrays(1, &m_VAO);
+	if (m_VBO) glDeleteBuffers(1, &m_VBO);
+	if (m_EBO) glDeleteBuffers(1, &m_EBO);
+	if (m_Texture) glDeleteTextures(1, &m_Texture);
+
 	if (m_Window)
 	{
 		glfwDestroyWindow(m_Window);
 		m_Window = nullptr;
 	}
 
-	// Safe to call even if not initialized; GLFW handles it.
 	glfwTerminate();
 }
+
 
 bool Application::Initialize()
 {
@@ -163,7 +168,7 @@ void Application::Render(float DeltaTime)
 	}
 
 	glBindVertexArray(m_VAO);
-	glDrawArrays(GL_TRIANGLES, 0, 6);
+	glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0);
 	glBindVertexArray(0);
 
 	glUseProgram(0);
@@ -174,14 +179,11 @@ void Application::SetupTriangle()
 {
 	// 1. Vertex Data for a simple triangle (positions only)
 	float vertices[] = {
-		// x,      y,      z,     r,    g,  b   u    v
-		-0.5f, -0.5f, 0.0f,  0.0f, 0.0f, 0.0f,	0.0f, 0.0f, // bottom-left
-		 0.5f, -0.5f, 0.0f,  1.0f, 0.0f, 0.0f,	1.0f, 0.0f,	// bottom-right
-		 0.5f,  0.5f, 0.0f,  0.0f, 1.0f, 0.0f,	1.0f, 1.0f, // top-right
-		-0.5f, -0.5f, 0.0f,  0.0f, 0.0f, 0.0f,	0.0f, 0.0f, // bottom-left
-		 0.5f,  0.5f, 0.0f,  0.0f, 1.0f, 0.0f,	1.0f, 1.0f, // top-right
-		-0.5f,  0.5f, 0.0f,  0.0f, 0.0f, 1.0f,	0.0f, 1.0f, // top-left
-
+		// x,      y,      z,     r,    g,    b,     u,    v
+		-0.5f, -0.5f, 0.0f,  0.0f, 0.0f, 0.0f,  0.0f, 0.0f, // bottom-left
+		 0.5f, -0.5f, 0.0f,  1.0f, 0.0f, 0.0f,  1.0f, 0.0f, // bottom-right
+		 0.5f,  0.5f, 0.0f,  0.0f, 1.0f, 0.0f,  1.0f, 1.0f, // top-right
+		-0.5f,  0.5f, 0.0f,  0.0f, 0.0f, 1.0f,  0.0f, 1.0f, // top-left
 	};
 
 	// 2. Generate and bind VAO and VBO
@@ -192,6 +194,17 @@ void Application::SetupTriangle()
 
 	glBindBuffer(GL_ARRAY_BUFFER, m_VBO);
 	glBufferData(GL_ARRAY_BUFFER, sizeof(vertices), vertices, GL_STATIC_DRAW);
+
+	// Indices for 2 triangles using 4 vertices
+	unsigned int indices[] = {
+		0, 1, 2,  // first triangle
+		0, 2, 3   // second triangle
+	};
+
+	glGenBuffers(1, &m_EBO);
+	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, m_EBO);
+	glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(indices), indices, GL_STATIC_DRAW);
+
 
 	// position attribute (location 0)
 	glVertexAttribPointer(
