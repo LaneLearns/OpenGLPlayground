@@ -160,6 +160,47 @@ void Application::Render(float DeltaTime)
 		);
 	}
 
+	// Simple view and projection matrices
+	glm::vec3 cameraPos		= glm::vec3(0.0f, 0.0f, 3.0f);
+	glm::vec3 cameraTarget	= glm::vec3(0.0f, 0.0f, 0.0f);
+	glm::vec3 cameraUp		= glm::vec3(0.0f, 1.0f, 0.0f);
+
+	glm::mat4 view = glm::lookAt(
+		cameraPos,
+		cameraTarget,
+		cameraUp
+	);
+
+	// Projection matrix
+	float aspect = static_cast<float>(m_Width) / static_cast<float>(m_Height);
+	glm::mat4 projection = glm::perspective(
+		glm::radians(45.0f),
+		aspect,
+		0.1f,
+		100.0f
+	);
+
+	// Upload them as uniforms
+	if (m_ViewUniformLocation != -1)
+	{
+		glUniformMatrix4fv(
+			m_ViewUniformLocation,
+			1,
+			GL_FALSE,
+			glm::value_ptr(view)
+		);
+	}
+
+	if (m_ProjectionUniformLocation != -1)
+	{
+		glUniformMatrix4fv(
+			m_ProjectionUniformLocation,
+			1,
+			GL_FALSE,
+			glm::value_ptr(projection)
+		);
+	}
+
 	// Bind texture to texture unit 0
 	if (m_Texture != 0)
 	{
@@ -253,11 +294,14 @@ void Application::SetupTriangle()
 
 		out vec3 vColor; // to pass to fragment shader
 		out vec2 vTexCoord; // to pass texture coord to fragment shader
+
 		uniform mat4 uModel;
+		uniform mat4 uView;
+		uniform mat4 uProjection;
 
 		void main()
 		{
-			gl_Position = uModel * vec4(aPos, 1.0);
+			gl_Position = uProjection * uView * uModel * vec4(aPos, 1.0);
 			vColor = aColor; // pass color to fragment shader
 			vTexCoord = aTexCoord; // pass texture coord to fragment shader
 		}
@@ -338,6 +382,18 @@ void Application::SetupTriangle()
 	if (m_TextureUniformLocation == -1)
 	{
 		std::cerr << "Failed to get uniform location for uTexture" << std::endl;
+	}
+
+	m_ViewUniformLocation = glGetUniformLocation(m_ShaderProgram, "uView");
+	if (m_ViewUniformLocation == -1)
+	{
+		std::cerr << "Failed to get uniform location for uView" << std::endl;
+	}
+
+	m_ProjectionUniformLocation = glGetUniformLocation(m_ShaderProgram, "uProjection");
+	if (m_ProjectionUniformLocation == -1)
+	{
+		std::cerr << "Failed to get uniform location for uProjection" << std::endl;
 	}
 
 	// Shaders are now linked into the program; we can delete the individual objects

@@ -41,6 +41,8 @@ private:
 	GLint m_TimeUniformLocation = -1;
 	GLint m_ModelUniformLocation = -1;
 	GLint m_TextureUniformLocation = -1; // Uniform location for the texture sampler
+	GLint m_ViewUniformLocation = -1;
+	GLint m_ProjectionUniformLocation = -1;
 
 	GLuint m_Texture = 0; // OpenGL texture handle
 };
