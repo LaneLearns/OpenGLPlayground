@@ -108,11 +108,20 @@ void Application::Render(float DeltaTime)
 	// Draw the triangle
 	glUseProgram(m_ShaderProgram);
 	glBindVertexArray(m_VAO);
+	// compute time value
+	float timeValue = static_cast<float>(glfwGetTime());
+
+	// set the uniform, but only if the location is valid
+	if (m_TimeUniformLocation != -1)
+	{
+		glUniform1f(m_TimeUniformLocation, timeValue);
+	}
 
 	glDrawArrays(GL_TRIANGLES, 0, 3);
 
 	glBindVertexArray(0);
 	glUseProgram(0);
+
 }
 
 void Application::SetupTriangle()
@@ -179,12 +188,14 @@ void Application::SetupTriangle()
 
 	const char* fragmentShaderSource = R"(
 		#version 450 core
+		uniform float uTime;
 		in vec3 vColor; // from vertex shader
-
 		out vec4 FragColor;
+
 		void main()
 		{
-			FragColor = vec4(vColor, 1.0);
+			float factor = 0.5 + 0.5 * sin(uTime);
+			FragColor = vec4(vColor * factor, 1.0);
 		}
 	)";
 
@@ -228,6 +239,13 @@ void Application::SetupTriangle()
 		char infoLog[512];
 		glGetProgramInfoLog(m_ShaderProgram, 512, nullptr, infoLog);
 		std::cerr << "Shader program linking failed:\n" << infoLog << std::endl;
+	}
+
+	// NEW: Get uniform location for time
+	m_TimeUniformLocation = glGetUniformLocation(m_ShaderProgram, "uTime");
+	if (m_TimeUniformLocation == -1)
+	{
+		std::cerr << "Failed to get uniform location for uTime" << std::endl;
 	}
 
 	// Shaders are now linked into the program; we can delete the individual objects

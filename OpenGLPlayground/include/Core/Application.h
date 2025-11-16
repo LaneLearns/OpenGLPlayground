@@ -34,4 +34,5 @@ private:
 	GLuint m_VAO = 0;
 	GLuint m_VBO = 0;
 	GLuint m_ShaderProgram = 0;
+	GLint m_TimeUniformLocation = -1;
 };
