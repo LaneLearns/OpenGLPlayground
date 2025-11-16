@@ -7,7 +7,7 @@
 class Application
 {
 public:
-	Application(const int width, const int height, const std::string& title);
+	Application(int width, int height, const std::string& title);
 	~Application();
 
 	// Initialize libraries, create window, load OpenGL.
@@ -19,7 +19,9 @@ public:
 private:
 
 	void ProcessInput();
-	void Render(float DeltaTime);
+	void Render(float deltaTime);
+
+	void SetupTriangle();
 
 	int m_Width;
 	int m_Height;
@@ -28,4 +30,8 @@ private:
 	GLFWwindow* m_Window = nullptr;
 
 	double m_LastFrameTime = 0.0;
+
+	GLuint m_VAO = 0;
+	GLuint m_VBO = 0;
+	GLuint m_ShaderProgram = 0;
 };
