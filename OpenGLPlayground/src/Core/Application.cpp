@@ -2,6 +2,10 @@
 
 #include <iostream>
 
+#include <glm/glm.hpp>
+#include <glm/gtc/matrix_transform.hpp>
+#include <glm/gtc/type_ptr.hpp>
+
 Application::Application(const int width, const int height, const std::string& title)
 	: m_Width(width), m_Height(height), m_Title(title)
 {
@@ -107,9 +111,13 @@ void Application::Render(float DeltaTime)
 
 	// Draw the triangle
 	glUseProgram(m_ShaderProgram);
-	glBindVertexArray(m_VAO);
+
 	// compute time value
 	float timeValue = static_cast<float>(glfwGetTime());
+
+	float angle = timeValue; // Rotate based on time
+	glm::mat4 model = glm::mat4(1.0f);
+	model = glm::rotate(model, angle, glm::vec3(0.0f, 0.0f, 1.0f));
 
 	// set the uniform, but only if the location is valid
 	if (m_TimeUniformLocation != -1)
@@ -117,6 +125,17 @@ void Application::Render(float DeltaTime)
 		glUniform1f(m_TimeUniformLocation, timeValue);
 	}
 
+	if (m_ModelUniformLocation != -1)
+	{
+		glUniformMatrix4fv(
+			m_ModelUniformLocation, 
+			1,
+			GL_FALSE, 
+			glm::value_ptr(model)
+		);
+	}
+
+	glBindVertexArray(m_VAO);
 	glDrawArrays(GL_TRIANGLES, 0, 3);
 
 	glBindVertexArray(0);
@@ -178,10 +197,11 @@ void Application::SetupTriangle()
 		layout(location = 1) in vec3 aColor;
 
 		out vec3 vColor; // to pass to fragment shader
+		uniform mat4 uModel;
 
 		void main()
 		{
-			gl_Position = vec4(aPos, 1.0);
+			gl_Position = uModel * vec4(aPos, 1.0);
 			vColor = aColor; // pass color to fragment shader
 		}
 	)";
@@ -246,6 +266,12 @@ void Application::SetupTriangle()
 	if (m_TimeUniformLocation == -1)
 	{
 		std::cerr << "Failed to get uniform location for uTime" << std::endl;
+	}
+
+	m_ModelUniformLocation = glGetUniformLocation(m_ShaderProgram, "uModel");
+	if (m_ModelUniformLocation == -1)
+	{
+		std::cerr << "Failed to get uniform location for uModel" << std::endl;
 	}
 
 	// Shaders are now linked into the program; we can delete the individual objects
