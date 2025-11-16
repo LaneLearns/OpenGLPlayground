@@ -6,6 +6,9 @@
 #include <glm/gtc/matrix_transform.hpp>
 #include <glm/gtc/type_ptr.hpp>
 
+#define STB_IMAGE_IMPLEMENTATION
+#include <stb_image.h>
+
 Application::Application(const int width, const int height, const std::string& title)
 	: m_Width(width), m_Height(height), m_Title(title)
 {
@@ -62,6 +65,26 @@ bool Application::Initialize()
 	glfwSwapInterval(1);
 
 	m_LastFrameTime = glfwGetTime();
+	
+	// setup GPU resources for triangle
+	SetupTriangle();
+
+	// Load a texture
+	m_Texture = LoadTextureFromFile("assets/Paper_280S.jpg");
+	if (m_Texture == 0)
+	{
+		std::cerr << "Failed to load texture." << std::endl;
+		return false;
+	}
+
+	// Tell the shader to use texture unit 0 for uTexture
+	glUseProgram(m_ShaderProgram);
+	if (m_TextureUniformLocation != -1)
+	{
+		glUniform1i(m_TextureUniformLocation, 0); // Texture unit 0
+	}
+
+	glUseProgram(0);
 
 	return true;
 }
@@ -79,9 +102,6 @@ int Application::Run()
 		double currentTime = glfwGetTime();
 		float deltaTime = static_cast<float>(currentTime - m_LastFrameTime);
 		m_LastFrameTime = currentTime;
-
-		// NEW: setup GPU resources for triangle
-		SetupTriangle();
 
 		ProcessInput();
 		Render(deltaTime);
@@ -114,8 +134,8 @@ void Application::Render(float DeltaTime)
 
 	// compute time value
 	float timeValue = static_cast<float>(glfwGetTime());
-
 	float angle = timeValue; // Rotate based on time
+
 	glm::mat4 model = glm::mat4(1.0f);
 	model = glm::rotate(model, angle, glm::vec3(0.0f, 0.0f, 1.0f));
 
@@ -135,10 +155,17 @@ void Application::Render(float DeltaTime)
 		);
 	}
 
-	glBindVertexArray(m_VAO);
-	glDrawArrays(GL_TRIANGLES, 0, 3);
+	// Bind texture to texture unit 0
+	if (m_Texture != 0)
+	{
+		glActiveTexture(GL_TEXTURE0);
+		glBindTexture(GL_TEXTURE_2D, m_Texture);
+	}
 
+	glBindVertexArray(m_VAO);
+	glDrawArrays(GL_TRIANGLES, 0, 6);
 	glBindVertexArray(0);
+
 	glUseProgram(0);
 
 }
@@ -147,10 +174,13 @@ void Application::SetupTriangle()
 {
 	// 1. Vertex Data for a simple triangle (positions only)
 	float vertices[] = {
-		// x,      y,      z,     r,    g,    b
-		-0.5f, -0.5f, 0.0f,  0.0f, 0.0f, 0.0f, // bottom-left
-		 0.5f, -0.5f, 0.0f,  1.0f, 0.0f, 0.0f, // bottom-right
-		 0.0f,  0.5f, 0.0f,  0.0f, 1.0f, 0.0f  // top
+		// x,      y,      z,     r,    g,  b   u    v
+		-0.5f, -0.5f, 0.0f,  0.0f, 0.0f, 0.0f,	0.0f, 0.0f, // bottom-left
+		 0.5f, -0.5f, 0.0f,  1.0f, 0.0f, 0.0f,	1.0f, 0.0f,	// bottom-right
+		 0.5f,  0.5f, 0.0f,  0.0f, 1.0f, 0.0f,	1.0f, 1.0f, // top-right
+		-0.5f, -0.5f, 0.0f,  0.0f, 0.0f, 0.0f,	0.0f, 0.0f, // bottom-left
+		 0.5f,  0.5f, 0.0f,  0.0f, 1.0f, 0.0f,	1.0f, 1.0f, // top-right
+		-0.5f,  0.5f, 0.0f,  0.0f, 0.0f, 1.0f,	0.0f, 1.0f, // top-left
 
 	};
 
@@ -169,7 +199,7 @@ void Application::SetupTriangle()
 		3,                  // Number of components (x, y, z)
 		GL_FLOAT,
 		GL_FALSE,
-		6 * sizeof(float),	// Stride 6 floats per vertex
+		8 * sizeof(float),	// Stride 8 floats per vertex
 		(void*)0			// Offset: start of the vertex data
 	);
 	glEnableVertexAttribArray(0);
@@ -180,10 +210,21 @@ void Application::SetupTriangle()
 		3,                                  // Number of components (r, g, b)
 		GL_FLOAT,
 		GL_FALSE,
-		6 * sizeof(float),                  // Stride 6 floats per vertex
+		8 * sizeof(float),                  // Stride 8 floats per vertex
 		(void*)(3 * sizeof(float))          // Offset: after the first 3 floats (position)
 	);
 	glEnableVertexAttribArray(1);
+
+	// texture coord attribute (location 2)
+	glVertexAttribPointer(
+		2,                                  // Attribute location
+		2,                                  // Number of components (u, v)
+		GL_FLOAT,
+		GL_FALSE,
+		8 * sizeof(float),                  // Stride 8 floats per vertex
+		(void*)(6 * sizeof(float))          // Offset: after the first 6 floats (position + color)
+	);
+	glEnableVertexAttribArray(2);
 
 	// Unbind for cleanliness
 	glBindBuffer(GL_ARRAY_BUFFER, 0);
@@ -195,27 +236,33 @@ void Application::SetupTriangle()
 		#version 450 core
 		layout(location = 0) in vec3 aPos;
 		layout(location = 1) in vec3 aColor;
+		layout(location = 2) in vec2 aTexCoord;
 
 		out vec3 vColor; // to pass to fragment shader
+		out vec2 vTexCoord; // to pass texture coord to fragment shader
 		uniform mat4 uModel;
 
 		void main()
 		{
 			gl_Position = uModel * vec4(aPos, 1.0);
 			vColor = aColor; // pass color to fragment shader
+			vTexCoord = aTexCoord; // pass texture coord to fragment shader
 		}
 	)";
 
 	const char* fragmentShaderSource = R"(
 		#version 450 core
 		uniform float uTime;
+		uniform sampler2D uTexture;
 		in vec3 vColor; // from vertex shader
+		in vec2 vTexCoord; // from vertex shader
 		out vec4 FragColor;
 
 		void main()
 		{
 			float factor = 0.5 + 0.5 * sin(uTime);
-			FragColor = vec4(vColor * factor, 1.0);
+			vec4 texColor = texture(uTexture, vTexCoord);
+			FragColor = vec4(vColor * factor, 1.0) * texColor;
 		}
 	)";
 
@@ -274,7 +321,70 @@ void Application::SetupTriangle()
 		std::cerr << "Failed to get uniform location for uModel" << std::endl;
 	}
 
+	m_TextureUniformLocation = glGetUniformLocation(m_ShaderProgram, "uTexture");
+	if (m_TextureUniformLocation == -1)
+	{
+		std::cerr << "Failed to get uniform location for uTexture" << std::endl;
+	}
+
 	// Shaders are now linked into the program; we can delete the individual objects
 	glDeleteShader(vertexShader);
 	glDeleteShader(fragmentShader);
+}
+
+GLuint Application::LoadTextureFromFile(const char* path)
+{
+	int width = 0;
+	int height = 0;
+	int nrChannels = 0;
+
+	// Flip vertically so the image's origin matches OpenGL's texture coordinates
+	stbi_set_unpremultiply_on_load(1);
+
+	unsigned char* data = stbi_load(path, &width, &height, &nrChannels, 0);
+	if (!data)
+	{
+		std::cerr << "Failed to load texture image: " << path << std::endl;
+		return 0;
+	}
+
+	GLenum format = GL_RGB;
+	if (nrChannels == 1)
+		format = GL_RED;
+	else if (nrChannels == 3)
+		format = GL_RGB;
+	else if (nrChannels == 4)
+		format = GL_RGBA;
+
+	GLuint textureID = 0;
+	glGenTextures(1, &textureID);
+	glBindTexture(GL_TEXTURE_2D, textureID);
+
+	// Set texture parameters (wrapping and filtering)
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+
+	// Upload piexel data
+	glTexImage2D(
+		GL_TEXTURE_2D,
+		0,
+		format,
+		width,
+		height,
+		0,
+		format,
+		GL_UNSIGNED_BYTE,
+		data
+	);
+	glGenerateMipmap(GL_TEXTURE_2D);
+
+	// Cleanup CPU image data
+	stbi_image_free(data);
+
+	// Optional: unbind
+	glBindTexture(GL_TEXTURE_2D, 0);
+
+	return textureID;
 }

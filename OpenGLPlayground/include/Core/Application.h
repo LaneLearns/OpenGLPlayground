@@ -23,6 +23,8 @@ private:
 
 	void SetupTriangle();
 
+	GLuint LoadTextureFromFile(const char* path);
+
 	int m_Width;
 	int m_Height;
 	std::string m_Title;
@@ -34,6 +36,10 @@ private:
 	GLuint m_VAO = 0;
 	GLuint m_VBO = 0;
 	GLuint m_ShaderProgram = 0;
+
 	GLint m_TimeUniformLocation = -1;
 	GLint m_ModelUniformLocation = -1;
+	GLint m_TextureUniformLocation = -1; // Uniform location for the texture sampler
+
+	GLuint m_Texture = 0; // OpenGL texture handle
 };
